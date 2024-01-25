@@ -11,7 +11,6 @@ sock.bind(addr)
 
 conected_clients = set()
 
-#sock.settimeout(10)
 while True:
     clientMessage, clientAddress = sock.recvfrom(BUFFER_SIZE)
     clientMessageDecoded = clientMessage.decode()
@@ -26,9 +25,9 @@ while True:
             None
     else:
         if(clientAddress in conected_clients):
-            print(clientAddress, clientMessageDecoded)
             for client in conected_clients:
                 sock.sendto(clientMessageDecoded.encode(), client)
+
         else:
             None
         
