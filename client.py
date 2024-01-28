@@ -10,11 +10,10 @@ CONECTAR_SALA = "hi, meu nome eh"
 serverAddress = (host, port)
 sock = socket(AF_INET, SOCK_DGRAM)
 
-def extrair_nome_usuario(input_string):
+def extract_name(input_string):
     # Expressão regular para extrair o nome do usuário
     pattern = r'<(.*?)>'
     match = re.search(pattern, input_string)
-    
     if match:
         # Retorna o primeiro grupo de captura que corresponde ao nome do usuário
         return match.group(1)
@@ -26,7 +25,7 @@ def main():
 
     if(mensagem.startswith(CONECTAR_SALA)):
         sock.sendto(mensagem.encode(), serverAddress)
-        user_name = extrair_nome_usuario(mensagem)
+        user_name = extract_name(mensagem)
         print("Conectado com sucesso!")
 
         thread_envio = threading.Thread(target=enviar_mensagens, args=[user_name])
@@ -39,8 +38,6 @@ def main():
         print("Usuário não conectado!")
         main()
 
-
-
 def receber_mensagens():
     while True:
         clientMessage, clientAddress = sock.recvfrom(BUFFER_SIZE)
@@ -49,9 +46,12 @@ def receber_mensagens():
 
 def enviar_mensagens(user_name):
     while True:
-        mensagem = input('Digite: ')
+        mensagem = input()
         if mensagem == SAIR_SALA:
-            break
+            full_message = f'<{user_name}>{mensagem}'
+            sock.sendto(full_message.encode(), serverAddress)
+            print("Usuário desconectado!")
+            return False
         else:
             with open("mensagens.txt", "w") as arquivo:
                 full_message = f'<{user_name}>:{mensagem}'
