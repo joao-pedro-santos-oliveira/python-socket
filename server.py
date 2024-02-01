@@ -52,12 +52,16 @@ def remove_client(clientAddress, user_name):
 
 def broadcast(user_ip, user_port, clientMessageDecoded, timestamp, clientAddress):
     #função para retransmitir a mensagem recebida de um client para todos os clients conectados
-    with open("python-socket/mensagens.txt", "w") as arquivo:
-        full_message = f'<{user_ip}>:<{user_port}>/~{clientMessageDecoded} {timestamp}'
+    file_path = f'python-socket/message{user_port}.txt'
+    #abrindo o arquivo em modo escrita e inserindo os dados
+    with open(file_path, "w") as arquivo:
+        full_message = f'<{user_ip}>:<{user_port}>/~{clientMessageDecoded} <{timestamp}>'
         arquivo.write(full_message)
-
-    with open("python-socket/mensagens.txt", "r") as arquivo_read:
-        dados = arquivo_read.read(BUFFER_SIZE)
+    #abrindo o arquivo em modo leitura
+    with open(file_path, "r") as arquivo_leitura:
+        #a variavel recebe os dados do buffer
+        dados = arquivo_leitura.read(BUFFER_SIZE)
+        #enquanto houverem dados a serem enviados, ele continuara enviando
         if(clientAddress in conected_clients):
             for client in conected_clients:
                 sock.sendto(dados.encode(), client)
@@ -71,11 +75,11 @@ def main():
         user_ip = clientAddress[0]
         user_port = clientAddress[1]
         #pegando a data/hora o horario da mensagem e formatando
-        timestamp = datetime.now().strftime('%H:%M:%S %Y-%m-%d')
+        timestamp = datetime.now().strftime('%H:%M:%S %d-%m-%Y')
         #extraindo o nome do usuário e a mensagem em duas variáveis diferentes
         user_name = extract(clientMessageDecoded, "name")
         message = extract(clientMessageDecoded, "message")
-
+        
         #checando se o client deseja se conectar
         if(clientMessageDecoded.startswith(CONECTAR_SALA)):
             connect_client(clientAddress, user_name)
@@ -83,8 +87,8 @@ def main():
         #checando se o client deseja se desconectar
         elif(message.startswith(SAIR_SALA)):
             remove_client(clientAddress, user_name)
-        #enviando a mensagem extraida do arquivo txt para todos os clients
         else:
+            #retransmitindo para todos os clients
             broadcast(user_ip, user_port, clientMessageDecoded, timestamp, clientAddress)
 
 if __name__ == "__main__":
