@@ -1,3 +1,8 @@
+PROJETO DE CONSTRUÇÃO DE SOCKET USANDO O PROTOCOLO UDP
+
+Criação de um socket em python, utilizando a biblioteca socket, que utiliza o protocolo UDP
+Feito por: Igor Correa, João Pedro, Marcos Christopher, Rafaela Leão e Tiago Chacon
+
 INSTRUÇÕES PARA RODAR O PROJETO:
 
 1 - É necessário no minimo 3 terminais(2 clients e 1 servidor)
