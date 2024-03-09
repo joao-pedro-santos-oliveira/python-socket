@@ -24,13 +24,32 @@ def extract(input_string, type):
         pattern = r'<(.*?)>'
         match = re.search(pattern, input_string)
     elif type == "message":
-        pattern = r'<.*?>(.*)'
+        pattern = r'<.*>:(.*):<.*>'
         match = re.search(pattern, input_string)
-    
-    if match:
+    elif type == "checksum":
+            pattern = r'<.*>:(.*):<(.*)>'
+            match = re.search(pattern, input_string)
+
+    if (match and type != "checksum"):
         return match.group(1)
+    
+    elif(match and type == "checksum"):
+        return match.group(2)
+    
     else:
         return None
+    
+def checksum(data):
+    # Função para calcular o checksum
+    checksum_value = 0
+    for i in range(0, len(data), 2):
+        if i + 1 < len(data):
+            word = (data[i] << 8) + data[i + 1]
+            checksum_value += word
+    while (checksum_value >> 16) > 0:
+        checksum_value = (checksum_value & 0xFFFF) + (checksum_value >> 16)
+    checksum_value = ~checksum_value & 0xFFFF
+    return checksum_value
 
 def connect_client(clientAddress, user_name):
     #função para conectar os clients e adicionar o seu endereço na lista de clients conectados
@@ -64,6 +83,7 @@ def broadcast(user_ip, user_port, clientMessageDecoded, timestamp, clientAddress
         #enquanto houverem dados a serem enviados, ele continuara enviando
         if(clientAddress in conected_clients):
             for client in conected_clients:
+                #enviando as mensagens fragmentadas para o usuario
                 sock.sendto(dados.encode(), client)
 
 def main():
@@ -79,7 +99,8 @@ def main():
         #extraindo o nome do usuário e a mensagem em duas variáveis diferentes
         user_name = extract(clientMessageDecoded, "name")
         message = extract(clientMessageDecoded, "message")
-        
+        extracted_message_checksum = extract(clientMessageDecoded, "checksum")
+        checksum_user_message = f"<{user_name}>:{message}:"
         #checando se o client deseja se conectar
         if(clientMessageDecoded.startswith(CONECTAR_SALA)):
             connect_client(clientAddress, user_name)
@@ -88,8 +109,15 @@ def main():
         elif(message.startswith(SAIR_SALA)):
             remove_client(clientAddress, user_name)
         else:
+            clientMessageChecksum = checksum(checksum_user_message.encode())
+            #print(bytes(extracted_message_checksum), clientMessageChecksum.to_bytes(4, byteorder="big"))
+            if(extracted_message_checksum == str(clientMessageChecksum.to_bytes(4, byteorder="big"))):
             #retransmitindo para todos os clients
-            broadcast(user_ip, user_port, clientMessageDecoded, timestamp, clientAddress)
+                broadcast(user_ip, user_port, clientMessageDecoded, timestamp, clientAddress)
+
+            else:
+                return
+
 
 if __name__ == "__main__":
     main()
