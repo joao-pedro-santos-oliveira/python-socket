@@ -9,6 +9,7 @@ port = 11311
 BUFFER_SIZE =1024
 SAIR_SALA = "bye"
 CONECTAR_SALA = "hi, meu nome eh"
+ACK = "ack"
 addr = (host, port)
 sock = socket(AF_INET, SOCK_DGRAM)
 
@@ -51,12 +52,19 @@ def checksum(data):
     checksum_value = ~checksum_value & 0xFFFF
     return checksum_value
 
+def is_package_ok(extracted_message_checksum, client_message_checksum):
+    return extracted_message_checksum == client_message_checksum
+
 def connect_client(clientAddress, user_name):
     #função para conectar os clients e adicionar o seu endereço na lista de clients conectados
     conected_clients.add(clientAddress)
     for client in conected_clients:
         #avisando a todos os clients que um novo client foi conectado
-        connection_message = f'{user_name} entrou na sala!'
+        connection_message = f'CONNECT {user_name} entrou na sala!'
+        connection_message_checksum = checksum(connection_message.encode())
+        connection_message_checksum_to_bytes = str(connection_message_checksum.to_bytes(4, byteorder="big"))
+        connection_message = connection_message + connection_message_checksum_to_bytes
+
         sock.sendto(connection_message.encode(), client)
 
 def remove_client(clientAddress, user_name):
@@ -68,6 +76,15 @@ def remove_client(clientAddress, user_name):
             if(client != clientAddress):
                 sock.sendto(removed_message.encode(), client)
         conected_clients.remove(clientAddress)
+
+def extract_name_checksum_connect(input_string):
+    partes = input_string.split()
+    for i, parte in enumerate(partes):
+        if parte.startswith("b'") and parte.endswith("'"):
+            # Verifica se a parte anterior é o nome
+            nome = partes[i - 1].strip("<>")
+            checksum = parte.strip("b'")
+            return nome, "b'" + checksum + "'"
 
 def broadcast(user_ip, user_port, clientMessageDecoded, timestamp, clientAddress):
     #função para retransmitir a mensagem recebida de um client para todos os clients conectados
@@ -99,24 +116,29 @@ def main():
         #extraindo o nome do usuário e a mensagem em duas variáveis diferentes
         user_name = extract(clientMessageDecoded, "name")
         message = extract(clientMessageDecoded, "message")
-        extracted_message_checksum = extract(clientMessageDecoded, "checksum")
-        checksum_user_message = f"<{user_name}>:{message}:"
         #checando se o client deseja se conectar
         if(clientMessageDecoded.startswith(CONECTAR_SALA)):
-            connect_client(clientAddress, user_name)
+            checksum_user_message = f"{CONECTAR_SALA} <{user_name}>"
+            client_message_checksum = checksum(checksum_user_message.encode())
+            client_message_checksum_to_bytes = str(client_message_checksum.to_bytes(4, byteorder="big"))
+            _, extracted_message_checksum = extract_name_checksum_connect(clientMessageDecoded)
+
+            if(is_package_ok(extracted_message_checksum, client_message_checksum_to_bytes)):  
+                connect_client(clientAddress, user_name)
 
         #checando se o client deseja se desconectar
         elif(message.startswith(SAIR_SALA)):
             remove_client(clientAddress, user_name)
         else:
-            clientMessageChecksum = checksum(checksum_user_message.encode())
-            #print(bytes(extracted_message_checksum), clientMessageChecksum.to_bytes(4, byteorder="big"))
-            if(extracted_message_checksum == str(clientMessageChecksum.to_bytes(4, byteorder="big"))):
+            extracted_message_checksum = extract(clientMessageDecoded, "checksum")
+            checksum_user_message = f"<{user_name}>:{message}:"
+            client_message_checksum = checksum(checksum_user_message.encode())
+            client_message_checksum_to_bytes = str(client_message_checksum.to_bytes(4, byteorder="big"))
+            if(is_package_ok(extracted_message_checksum, client_message_checksum_to_bytes)):
             #retransmitindo para todos os clients
                 broadcast(user_ip, user_port, clientMessageDecoded, timestamp, clientAddress)
+                
 
-            else:
-                return
 
 
 if __name__ == "__main__":
